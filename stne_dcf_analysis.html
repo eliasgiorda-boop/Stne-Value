@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STNE — Análisis DCF con Escenarios</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8e6f0;
+    --muted: #7a7890;
+    --accent: #5DCAA5;
+    --accent2: #1D9E75;
+    --gold: #EF9F27;
+    --danger: #E24B4A;
+    --success: #5DCAA5;
+    --warn: #EF9F27;
+    --bear-col: #E24B4A;
+    --base-col: #EF9F27;
+    --bull-col: #5DCAA5;
+  }
+
+  html { font-size: 16px; }
+
+  body {
+    font-family: 'Instrument Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(93,202,165,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(93,202,165,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 60px 32px 100px; }
+
+  .header { margin-bottom: 64px; }
+
+  .ticker-row { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+
+  .ticker {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    background: rgba(93,202,165,0.12);
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid rgba(93,202,165,0.25);
+  }
+
+  .badge-dcf {
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    background: var(--surface2);
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(36px, 5vw, 52px);
+    font-weight: 400;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #fff 0%, #5DCAA5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 600px;
+    line-height: 1.6;
+  }
+
+  .section { margin-bottom: 48px; }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent) 0%, transparent 100%);
+    opacity: 0.3;
+  }
+
+  .params-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .param-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s ease;
+  }
+
+  .param-card:hover {
+    border-color: var(--border2);
+    transform: translateY(-2px);
+  }
+
+  .param-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .param-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .param-note {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    opacity: 0.7;
+  }
+
+  .scenarios-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  @media (max-width: 900px) {
+    .scenarios-container { grid-template-columns: 1fr; }
+  }
+
+  .scenario-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .scenario-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--border2);
+  }
+
+  .scenario-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+  }
+
+  .scenario-card.bear::before { background: linear-gradient(90deg, var(--bear-col), transparent); }
+  .scenario-card.base::before { background: linear-gradient(90deg, var(--base-col), transparent); }
+  .scenario-card.bull::before { background: linear-gradient(90deg, var(--bull-col), transparent); }
+
+  .scenario-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+
+  .bear .scenario-icon { background: rgba(226,75,74,0.15); color: var(--bear-col); }
+  .base .scenario-icon { background: rgba(239,159,39,0.15); color: var(--base-col); }
+  .bull .scenario-icon { background: rgba(93,202,165,0.15); color: var(--bull-col); }
+
+  .scenario-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+
+  .bear .scenario-name { color: var(--bear-col); }
+  .base .scenario-name { color: var(--base-col); }
+  .bull .scenario-name { color: var(--bull-col); }
+
+  .scenario-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .scenario-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .metric-row:last-child { border-bottom: none; }
+
+  .metric-label {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .metric-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .result-box {
+    margin-top: 20px;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+  }
+
+  .bear .result-box { background: rgba(226,75,74,0.08); border: 1px solid rgba(226,75,74,0.2); }
+  .base .result-box { background: rgba(239,159,39,0.08); border: 1px solid rgba(239,159,39,0.2); }
+  .bull .result-box { background: rgba(93,202,165,0.08); border: 1px solid rgba(93,202,165,0.2); }
+
+  .result-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  .result-price {
+    font-family: 'DM Mono', monospace;
+    font-size: 32px;
+    font-weight: 500;
+  }
+
+  .bear .result-price { color: var(--bear-col); }
+  .base .result-price { color: var(--base-col); }
+  .bull .result-price { color: var(--bull-col); }
+
+  .result-upside {
+    font-size: 13px;
+    margin-top: 6px;
+  }
+
+  .bear .result-upside { color: var(--bear-col); }
+  .base .result-upside { color: var(--base-col); }
+  .bull .result-upside { color: var(--bull-col); }
+
+  .summary-card {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 40px;
+    margin-top: 48px;
+  }
+
+  .summary-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+
+  .summary-text {
+    font-size: 15px;
+    color: var(--muted);
+    line-height: 1.8;
+    margin-bottom: 24px;
+  }
+
+  .price-range {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 24px;
+    background: var(--bg);
+    border-radius: 12px;
+    margin-bottom: 24px;
+  }
+
+  .price-bar {
+    flex: 1;
+    height: 8px;
+    background: linear-gradient(90deg, var(--bear-col) 0%, var(--base-col) 50%, var(--bull-col) 100%);
+    border-radius: 4px;
+    position: relative;
+  }
+
+  .current-marker {
+    position: absolute;
+    top: -8px;
+    width: 3px;
+    height: 24px;
+    background: #fff;
+    border-radius: 2px;
+    left: 35%;
+  }
+
+  .price-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    margin-top: 8px;
+  }
+
+  .risks-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  @media (max-width: 700px) {
+    .risks-grid { grid-template-columns: 1fr; }
+  }
+
+  .risk-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    background: var(--bg);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .risk-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .risk-icon.warn { background: rgba(239,159,39,0.15); color: var(--warn); }
+  .risk-icon.danger { background: rgba(226,75,74,0.15); color: var(--danger); }
+
+  .risk-text {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .risk-text strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .footer {
+    margin-top: 64px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .footer-text {
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0.6;
+  }
+
+  .footer-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0.6;
+  }
+
+  .chart-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 32px;
+  }
+
+  .chart-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 20px;
+  }
+
+  .waterfall {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 220px;
+    padding: 20px 20px 40px;
+    gap: 12px;
+    position: relative;
+  }
+
+  .wf-bar {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+    position: relative;
+  }
+
+  .wf-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .wf-block {
+    width: 100%;
+    max-width: 60px;
+    border-radius: 4px 4px 0 0;
+    transition: all 0.3s ease;
+    min-height: 20px;
+  }
+
+  .wf-block:hover {
+    opacity: 0.85;
+    transform: scaleY(1.03);
+    transform-origin: bottom;
+  }
+
+  .wf-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 10px;
+    text-align: center;
+    position: absolute;
+    bottom: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .peer-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .peer-table th {
+    text-align: left;
+    padding: 12px 16px;
+    font-weight: 500;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+
+  .peer-table td {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .peer-table tr:last-child td { border-bottom: none; }
+
+  .peer-table .highlight {
+    background: rgba(93,202,165,0.08);
+  }
+
+  .peer-table .ticker-cell {
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+  }
+
+  .assumption-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .assumption-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .assumption-bullet {
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="header">
+    <div class="ticker-row">
+      <span class="ticker">NASDAQ: STNE</span>
+      <span class="badge-dcf">DCF VALUATION</span>
+    </div>
+    <h1 class="title">StoneCo Ltd.<br>Análisis de Valuación</h1>
+    <p class="subtitle">Modelo de flujo de caja descontado (DCF) con tres escenarios de crecimiento para la fintech líder en pagos digitales de Brasil.</p>
+  </header>
+
+  <section class="section">
+    <div class="section-label">PARÁMETROS BASE</div>
+    <div class="params-grid">
+      <div class="param-card">
+        <div class="param-label">📈 Adj. Gross Profit 2025</div>
+        <div class="param-value">R$6.32B</div>
+        <div class="param-note">+13.5% YoY</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">💰 Adj. EPS 2025</div>
+        <div class="param-value">R$9.71</div>
+        <div class="param-note">+34% YoY</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">📊 ROE</div>
+        <div class="param-value">24%</div>
+        <div class="param-note">+8pp vs 2024</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">🏦 Net Cash</div>
+        <div class="param-value">R$2.6B</div>
+        <div class="param-note">Posición sólida</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">👥 Clientes MSMB</div>
+        <div class="param-value">4.7M</div>
+        <div class="param-note">+15% YoY</div>
+      </div>
+      <div class="param-card">
+        <div class="param-label">💳 Clientes Banking</div>
+        <div class="param-value">3.7M</div>
+        <div class="param-note">+21% YoY</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-label">PROYECCIÓN DE FCF</div>
+    <div class="chart-container">
+      <div class="chart-title">Free Cash Flow proyectado (R$ millones) — Escenario Base</div>
+      <div class="waterfall">
+        <div class="wf-bar">
+          <div class="wf-value">1,850</div>
+          <div class="wf-block" style="height:100px;background:var(--accent)"></div>
+          <div class="wf-label">2026</div>
+        </div>
+        <div class="wf-bar">
+          <div class="wf-value">2,130</div>
+          <div class="wf-block" style="height:115px;background:var(--accent)"></div>
+          <div class="wf-label">2027</div>
+        </div>
+        <div class="wf-bar">
+          <div class="wf-value">2,380</div>
+          <div class="wf-block" style="height:128px;background:var(--accent)"></div>
+          <div class="wf-label">2028</div>
+        </div>
+        <div class="wf-bar">
+          <div class="wf-value">2,620</div>
+          <div class="wf-block" style="height:141px;background:var(--accent)"></div>
+          <div class="wf-label">2029</div>
+        </div>
+        <div class="wf-bar">
+          <div class="wf-value">2,800</div>
+          <div class="wf-block" style="height:150px;background:var(--gold)"></div>
+          <div class="wf-label">2030</div>
+        </div>
+        <div class="wf-bar">
+          <div class="wf-value">TV</div>
+          <div class="wf-block" style="height:90px;background:var(--muted);opacity:0.6"></div>
+          <div class="wf-label">Terminal</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-label">ESCENARIOS DE VALUACIÓN</div>
+    <div class="scenarios-container">
+      
+      <div class="scenario-card bear">
+        <div class="scenario-icon">🐻</div>
+        <h3 class="scenario-name">Pesimista</h3>
+        <p class="scenario-desc">Competencia de Pix erosiona márgenes, NPLs suben, macro Brasil deteriora</p>
+        <div class="scenario-metrics">
+          <div class="metric-row">
+            <span class="metric-label">Crecimiento revenue</span>
+            <span class="metric-value">5%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">FCF margin</span>
+            <span class="metric-value">12%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Terminal growth</span>
+            <span class="metric-value">2%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">WACC</span>
+            <span class="metric-value">14%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Exit multiple</span>
+            <span class="metric-value">6x EV/EBITDA</span>
+          </div>
+        </div>
+        <div class="result-box">
+          <div class="result-label">PRECIO OBJETIVO</div>
+          <div class="result-price">$9.50</div>
+          <div class="result-upside">▼ -30% vs actual</div>
+        </div>
+      </div>
+
+      <div class="scenario-card base">
+        <div class="scenario-icon">⚖️</div>
+        <h3 class="scenario-name">Base</h3>
+        <p class="scenario-desc">Guidance 2026 se cumple, crédito escala gradualmente, market share estable</p>
+        <div class="scenario-metrics">
+          <div class="metric-row">
+            <span class="metric-label">Crecimiento revenue</span>
+            <span class="metric-value">12%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">FCF margin</span>
+            <span class="metric-value">16%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Terminal growth</span>
+            <span class="metric-value">3%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">WACC</span>
+            <span class="metric-value">12%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Exit multiple</span>
+            <span class="metric-value">8x EV/EBITDA</span>
+          </div>
+        </div>
+        <div class="result-box">
+          <div class="result-label">PRECIO OBJETIVO</div>
+          <div class="result-price">$17.80</div>
+          <div class="result-upside">▲ +31% vs actual</div>
+        </div>
+      </div>
+
+      <div class="scenario-card bull">
+        <div class="scenario-icon">🚀</div>
+        <h3 class="scenario-name">Optimista</h3>
+        <p class="scenario-desc">Crédito acelera, banking despega, expansión de márgenes por escala</p>
+        <div class="scenario-metrics">
+          <div class="metric-row">
+            <span class="metric-label">Crecimiento revenue</span>
+            <span class="metric-value">18%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">FCF margin</span>
+            <span class="metric-value">20%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Terminal growth</span>
+            <span class="metric-value">4%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">WACC</span>
+            <span class="metric-value">11%</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">Exit multiple</span>
+            <span class="metric-value">10x EV/EBITDA</span>
+          </div>
+        </div>
+        <div class="result-box">
+          <div class="result-label">PRECIO OBJETIVO</div>
+          <div class="result-price">$26.50</div>
+          <div class="result-upside">▲ +95% vs actual</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-label">COMPARACIÓN CON PEERS</div>
+    <div class="chart-container">
+      <table class="peer-table">
+        <thead>
+          <tr>
+            <th>TICKER</th>
+            <th>EMPRESA</th>
+            <th>P/E</th>
+            <th>P/B</th>
+            <th>ROE</th>
+            <th>MARKET CAP</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="highlight">
+            <td class="ticker-cell" style="color:var(--accent)">STNE</td>
+            <td>StoneCo</td>
+            <td>~9x</td>
+            <td>~1.04x</td>
+            <td>24%</td>
+            <td>$3.9B</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell">PAGS</td>
+            <td>PagSeguro</td>
+            <td>~5.8x</td>
+            <td><1x</td>
+            <td>~18%</td>
+            <td>$3.0B</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell">NU</td>
+            <td>Nubank</td>
+            <td>~25x</td>
+            <td>~5x</td>
+            <td>~28%</td>
+            <td>$45B+</td>
+          </tr>
+          <tr>
+            <td class="ticker-cell">MELI</td>
+            <td>MercadoLibre</td>
+            <td>~45x</td>
+            <td>~12x</td>
+            <td>~35%</td>
+            <td>$85B+</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-label">SUPUESTOS DEL MODELO</div>
+    <div class="chart-container">
+      <div class="assumption-list">
+        <div class="assumption-item">
+          <span class="assumption-bullet"></span>
+          <span>Horizonte de proyección: 5 años (2026-2030) + valor terminal</span>
+        </div>
+        <div class="assumption-item">
+          <span class="assumption-bullet"></span>
+          <span>FCF calculado como Net Income Adj. × (1 - reinvestment rate), asumiendo ~60% de conversión</span>
+        </div>
+        <div class="assumption-item">
+          <span class="assumption-bullet"></span>
+          <span>WACC incluye prima por riesgo Brasil (~4-5% sobre tasa libre de riesgo)</span>
+        </div>
+        <div class="assumption-item">
+          <span class="assumption-bullet"></span>
+          <span>Terminal value calculado con perpetuity growth y validado con exit multiple</span>
+        </div>
+        <div class="assumption-item">
+          <span class="assumption-bullet"></span>
+          <span>FX: BRL/USD implícito en precio actual (~5.0), no ajustado por devaluación futura</span>
+        </div>
+        <div class="assumption-item">
+          <span class="assumption-bullet"></span>
+          <span>Acciones: ~286M (considera buybacks anunciados en guidance)</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="summary-card">
+    <h2 class="summary-title">Conclusión del análisis</h2>
+    <p class="summary-text">
+      El mercado cotiza a STNE cerca del <strong>escenario base</strong> ($13.62 actual vs $17.80 target base). 
+      Con un P/E de ~9x y ROE de 24%, la valuación no está exigida — pero tampoco es ganga como PAGS (~5.8x).
+      El upside real requiere que se materialice el escenario optimista: crédito escalando sin deterioro de NPLs, 
+      banking ganando tracción, y márgenes expandiéndose por escala operativa.
+    </p>
+    
+    <div class="price-range">
+      <div style="text-align:center">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">BEAR</div>
+        <div style="font-family:'DM Mono',monospace;color:var(--bear-col)">$9.50</div>
+      </div>
+      <div style="flex:1">
+        <div class="price-bar">
+          <div class="current-marker" title="Precio actual: $13.62"></div>
+        </div>
+        <div class="price-labels">
+          <span style="color:var(--bear-col)">$9.50</span>
+          <span style="color:var(--text);opacity:0.5">← $13.62 actual →</span>
+          <span style="color:var(--bull-col)">$26.50</span>
+        </div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">BULL</div>
+        <div style="font-family:'DM Mono',monospace;color:var(--bull-col)">$26.50</div>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:32px">RIESGOS CLAVE</div>
+    <div class="risks-grid">
+      <div class="risk-item">
+        <div class="risk-icon danger">⚠</div>
+        <div class="risk-text"><strong>Pix y bancos digitales:</strong> El sistema de pagos instantáneos del BCB sigue ganando share y presiona take rates de adquirentes tradicionales.</div>
+      </div>
+      <div class="risk-item">
+        <div class="risk-icon warn">📉</div>
+        <div class="risk-text"><strong>NPLs en crédito:</strong> El portafolio de crédito está escalando (+23% QoQ) pero NPL 15-90 días subió a 4.43%.</div>
+      </div>
+      <div class="risk-item">
+        <div class="risk-icon warn">🇧🇷</div>
+        <div class="risk-text"><strong>Macro Brasil:</strong> Tasas Selic elevadas, inflación persistente y riesgo político pueden afectar PyMEs.</div>
+      </div>
+      <div class="risk-item">
+        <div class="risk-icon danger">📊</div>
+        <div class="risk-text"><strong>Saturación de mercado:</strong> Morgan Stanley advirtió que el mercado de pagos digitales podría haber llegado a saturación.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <span class="footer-text">Análisis generado con Claude. No constituye asesoramiento financiero. Datos de SEC filings, Benzinga, TipRanks.</span>
+    <span class="footer-date">08 Abril 2026</span>
+  </footer>
+</div>
+</body>
+</html>
